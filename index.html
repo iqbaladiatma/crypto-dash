@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="id" class="">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoDash – Pelacak Kripto Real-Time</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js for graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" xintegrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <style>
+        /* Custom scrollbar for a better look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .dark ::-webkit-scrollbar-track {
+            background: #2d3748;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* Style for active tab */
+        .tab-active {
+            border-color: #3b82f6; /* blue-500 */
+            color: #3b82f6;
+        }
+        .dark .tab-active {
+            border-color: #60a5fa; /* blue-400 */
+            color: #60a5fa;
+        }
+        /* Toast Notification Styles */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transform: translateX(calc(100% + 20px));
+            transition: transform 0.3s ease-in-out;
+            z-index: 50;
+        }
+        .toast.show {
+            transform: translateX(0);
+        }
+    </style>
+    <script>
+        // Konfigurasi Tailwind untuk mode gelap
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 font-sans transition-colors duration-300">
+
+    <div class="container mx-auto p-4 md:p-6">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400">
+                <i class="fas fa-chart-pie mr-2"></i>CryptoDash
+            </h1>
+            <button id="darkModeToggle" class="text-xl px-3 py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                <i class="fas fa-moon"></i>
+            </button>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Kolom Daftar Koin (Lebih besar) -->
+            <div class="lg:col-span-2 bg-white dark:bg-gray-800 p-4 md:p-6 rounded-xl shadow-lg">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                    <div class="border-b border-gray-200 dark:border-gray-700 mb-4 sm:mb-0">
+                        <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+                            <button id="tab-all" class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm tab-active">Semua Koin</button>
+                            <button id="tab-watchlist" class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300">Watchlist</button>
+                            <button id="tab-history" class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300">Riwayat Target</button>
+                        </nav>
+                    </div>
+                    <div id="search-container">
+                        <input type="text" id="searchInput" placeholder="Cari koin..." class="w-full sm:w-64 px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 border border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div id="history-actions" class="hidden">
+                         <button id="clear-history-btn" class="px-4 py-2 text-sm font-medium rounded-lg text-white bg-red-600 hover:bg-red-700"><i class="fas fa-trash mr-2"></i>Hapus Riwayat</button>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead id="main-table-head" class="text-xs text-gray-500 dark:text-gray-400 uppercase border-b dark:border-gray-600">
+                           <!-- Header akan di-render oleh JS -->
+                        </thead>
+                        <tbody id="coin-table-body">
+                            <!-- Data koin akan dimuat di sini oleh JS -->
+                            <tr><td colspan="6" class="text-center p-10"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-2">Memuat data...</p></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Kolom Detail & Grafik (Lebih kecil) -->
+            <div class="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-xl shadow-lg h-fit sticky top-6">
+                <div id="coin-detail-container">
+                     <div class="text-center text-gray-500 dark:text-gray-400 py-10">
+                        <i class="fas fa-mouse-pointer text-3xl mb-4"></i>
+                        <h3 class="font-bold text-lg">Pilih Koin</h3>
+                        <p class="text-sm">Klik pada salah satu koin untuk melihat detail dan grafiknya.</p>
+                    </div>
+                </div>
+                <div id="chart-container" class="mt-4 hidden">
+                    <canvas id="coinChart"></canvas>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Container untuk notifikasi toast -->
+    <div id="toast-container"></div>
+
+    <script>
+        // --- Elemen DOM ---
+        const coinTableBody = document.getElementById('coin-table-body');
+        const mainTableHead = document.getElementById('main-table-head');
+        const coinDetailContainer = document.getElementById('coin-detail-container');
+        const chartContainer = document.getElementById('chart-container');
+        const searchInput = document.getElementById('searchInput');
+        const searchContainer = document.getElementById('search-container');
+        const historyActions = document.getElementById('history-actions');
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const tabAll = document.getElementById('tab-all');
+        const tabWatchlist = document.getElementById('tab-watchlist');
+        const tabHistory = document.getElementById('tab-history');
+        const toastContainer = document.getElementById('toast-container');
+
+        // --- State Aplikasi ---
+        let coinData = [];
+        let watchlist = JSON.parse(localStorage.getItem('cryptoWatchlist')) || [];
+        let priceAlerts = JSON.parse(localStorage.getItem('cryptoPriceAlerts')) || {};
+        let alertHistory = JSON.parse(localStorage.getItem('cryptoAlertHistory')) || [];
+        let chartInstance = null;
+        let currentView = 'all'; // 'all', 'watchlist', or 'history'
+
+        // --- API & Konfigurasi ---
+        const API_URL = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=false';
+
+        // --- Fungsi Utama ---
+        async function fetchCoinData() {
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+                coinData = await response.json();
+                checkAlerts();
+                renderView();
+            } catch (error) {
+                console.error("Gagal mengambil data koin:", error);
+                coinTableBody.innerHTML = `<tr><td colspan="6" class="text-center p-10 text-red-500"><i class="fas fa-exclamation-triangle mr-2"></i> Gagal memuat data. Coba lagi nanti.</td></tr>`;
+            }
+        }
+
+        function renderView() {
+            if (currentView === 'history') {
+                renderHistoryTable();
+            } else {
+                renderCoinTable();
+            }
+        }
+        
+        function renderCoinTable() {
+            mainTableHead.innerHTML = `
+                <tr>
+                    <th scope="col" class="p-3 text-center">Fav</th>
+                    <th scope="col" class="p-3">#</th>
+                    <th scope="col" class="p-3">Koin</th>
+                    <th scope="col" class="p-3">Harga</th>
+                    <th scope="col" class="p-3 text-right">24j %</th>
+                    <th scope="col" class="p-3 hidden md:table-cell text-right">Kapitalisasi Pasar</th>
+                </tr>
+            `;
+            const searchTerm = searchInput.value.toLowerCase();
+            let dataToRender = currentView === 'watchlist' ? coinData.filter(c => watchlist.includes(c.id)) : coinData;
+            
+            const filteredData = dataToRender.filter(c => c.name.toLowerCase().includes(searchTerm) || c.symbol.toLowerCase().includes(searchTerm));
+
+            coinTableBody.innerHTML = '';
+
+            if (filteredData.length === 0) {
+                 let message = "Tidak ada koin yang cocok.";
+                 if (currentView === 'watchlist' && !dataToRender.length) {
+                     message = "Watchlist Anda kosong. Klik ikon bintang untuk menambahkan.";
+                 }
+                 coinTableBody.innerHTML = `<tr><td colspan="6" class="text-center p-10 text-gray-500">${message}</td></tr>`;
+                 return;
+            }
+
+            filteredData.forEach(coin => {
+                const priceChange = coin.price_change_percentage_24h;
+                const priceChangeColor = priceChange >= 0 ? 'text-green-500' : 'text-red-500';
+                const isFavorited = watchlist.includes(coin.id);
+                const favIconClass = isFavorited ? 'fas fa-star text-yellow-400' : 'far fa-star text-gray-400';
+                const hasAlert = priceAlerts[coin.id] !== undefined;
+
+                const row = document.createElement('tr');
+                row.className = 'border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors';
+                row.dataset.coinId = coin.id;
+
+                row.innerHTML = `
+                    <td class="p-3 text-center"><button class="watchlist-btn" data-coin-id="${coin.id}"><i class="${favIconClass}"></i></button></td>
+                    <td class="p-3 text-gray-500 dark:text-gray-400">${coin.market_cap_rank}</td>
+                    <td class="p-3"><div class="flex items-center"><img src="${coin.image}" alt="${coin.name}" class="w-6 h-6 mr-3 rounded-full"><div><div class="font-bold">${coin.name}</div><div class="text-xs text-gray-500 dark:text-gray-400">${coin.symbol.toUpperCase()}</div></div></div></td>
+                    <td class="p-3 font-medium">$${coin.current_price.toLocaleString('en-US')} ${hasAlert ? '<i class="fas fa-bell text-blue-500 ml-1 text-xs"></i>' : ''}</td>
+                    <td class="p-3 text-right font-medium ${priceChangeColor}">${priceChange ? priceChange.toFixed(2) + '%' : 'N/A'}</td>
+                    <td class="p-3 hidden md:table-cell text-right text-gray-500 dark:text-gray-400">$${coin.market_cap.toLocaleString('en-US')}</td>
+                `;
+                
+                row.addEventListener('click', e => !e.target.closest('.watchlist-btn') && displayCoinDetail(coin.id));
+                row.querySelector('.watchlist-btn').addEventListener('click', e => { e.stopPropagation(); toggleWatchlist(coin.id); });
+                coinTableBody.appendChild(row);
+            });
+        }
+
+        function renderHistoryTable() {
+            mainTableHead.innerHTML = `
+                <tr>
+                    <th scope="col" class="p-3">Koin</th>
+                    <th scope="col" class="p-3 text-right">Target Harga</th>
+                    <th scope="col" class="p-3 text-right">Harga Tercapai</th>
+                    <th scope="col" class="p-3 text-right">Tanggal</th>
+                </tr>
+            `;
+            coinTableBody.innerHTML = '';
+            
+            if (alertHistory.length === 0) {
+                coinTableBody.innerHTML = `<tr><td colspan="4" class="text-center p-10 text-gray-500">Belum ada riwayat target yang tercapai.</td></tr>`;
+                return;
+            }
+
+            alertHistory.forEach(entry => {
+                const row = document.createElement('tr');
+                row.className = 'border-b dark:border-gray-700';
+                row.innerHTML = `
+                    <td class="p-3"><div class="flex items-center"><img src="${entry.image}" alt="${entry.name}" class="w-6 h-6 mr-3 rounded-full"><div><div class="font-bold">${entry.name}</div><div class="text-xs text-gray-500 dark:text-gray-400">${entry.symbol.toUpperCase()}</div></div></div></td>
+                    <td class="p-3 text-right font-medium text-gray-500 dark:text-gray-400">$${entry.targetPrice.toLocaleString('en-US')}</td>
+                    <td class="p-3 text-right font-medium text-green-500">$${entry.triggeredPrice.toLocaleString('en-US')}</td>
+                    <td class="p-3 text-right text-gray-500 dark:text-gray-400">${new Date(entry.timestamp).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                `;
+                coinTableBody.appendChild(row);
+            });
+        }
+
+        async function displayCoinDetail(coinId) {
+            const coin = coinData.find(c => c.id === coinId);
+            if (!coin) return;
+
+            const currentAlertPrice = priceAlerts[coinId] || '';
+
+            coinDetailContainer.innerHTML = `
+                <div class="flex items-center mb-4"><img src="${coin.image}" alt="${coin.name}" class="w-10 h-10 mr-4 rounded-full"><div><h2 class="text-2xl font-bold">${coin.name}</h2><span class="text-gray-500 dark:text-gray-400">${coin.symbol.toUpperCase()}</span></div></div>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div><div class="text-gray-500 dark:text-gray-400">Harga</div><div class="font-bold text-lg">$${coin.current_price.toLocaleString('en-US')}</div></div>
+                    <div><div class="text-gray-500 dark:text-gray-400">Volume 24j</div><div class="font-bold text-lg">$${coin.total_volume.toLocaleString('en-US')}</div></div>
+                    <div><div class="text-gray-500 dark:text-gray-400">Tertinggi 24j</div><div class="font-bold text-lg text-green-500">$${coin.high_24h.toLocaleString('en-US')}</div></div>
+                    <div><div class="text-gray-500 dark:text-gray-400">Terendah 24j</div><div class="font-bold text-lg text-red-500">$${coin.low_24h.toLocaleString('en-US')}</div></div>
+                </div>
+                <div class="mt-6"><label for="price-alert-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Target Harga (USD)</label><div class="mt-1 flex rounded-md shadow-sm"><span class="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 dark:bg-gray-600 dark:border-gray-500 dark:text-gray-300 text-sm">$</span><input type="number" id="price-alert-input" class="flex-1 min-w-0 block w-full px-3 py-2 rounded-none bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-500 focus:ring-blue-500 focus:border-blue-500" placeholder="Contoh: 65000" value="${currentAlertPrice}"><button id="set-alert-btn" class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-500 text-sm font-medium rounded-r-md text-white bg-blue-600 hover:bg-blue-700">Atur</button></div><button id="remove-alert-btn" class="mt-2 text-xs text-red-500 hover:underline ${!currentAlertPrice ? 'hidden' : ''}">Hapus Target</button></div>
+                <div class="text-center mt-4 text-gray-500 loading-indicator"><i class="fas fa-spinner fa-spin mr-2"></i> Memuat grafik...</div>
+            `;
+            
+            document.getElementById('set-alert-btn').addEventListener('click', () => handleSetAlert(coinId));
+            document.getElementById('remove-alert-btn').addEventListener('click', () => handleRemoveAlert(coinId));
+            chartContainer.classList.remove('hidden');
+
+            try {
+                const chartDataUrl = `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=30`;
+                const response = await fetch(chartDataUrl);
+                if (!response.ok) throw new Error(`Chart API Error: ${response.statusText}`);
+                const chartData = await response.json();
+                renderChart(chartData.prices, coin.name);
+                const loadingIndicator = coinDetailContainer.querySelector('.loading-indicator');
+                if (loadingIndicator) loadingIndicator.remove();
+            } catch (error) {
+                console.error("Gagal mengambil data grafik:", error);
+                const loadingIndicator = coinDetailContainer.querySelector('.loading-indicator');
+                if (loadingIndicator) loadingIndicator.remove();
+                if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+                chartContainer.innerHTML = `<canvas id="coinChart"></canvas><p class="text-red-500 text-center p-4">Gagal memuat data grafik.</p>`;
+            }
+        }
+
+        function renderChart(priceData, label) {
+            const existingError = chartContainer.querySelector('p');
+            if(existingError) existingError.remove();
+            const ctx = document.getElementById('coinChart').getContext('2d');
+            const labels = priceData.map(p => new Date(p[0]).toLocaleDateString());
+            const data = priceData.map(p => p[1]);
+            const isDarkMode = document.documentElement.classList.contains('dark');
+            const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0,0, 0.1)';
+            const fontColor = isDarkMode ? '#e5e7eb' : '#1f2937';
+            if (chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(ctx, { type: 'line', data: { labels, datasets: [{ label: `Harga ${label} (30 hari)`, data, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 2, pointRadius: 0, tension: 0.4, fill: true }] }, options: { responsive: true, maintainAspectRatio: true, scales: { y: { ticks: { color: fontColor, callback: (value) => '$' + value.toLocaleString() }, grid: { color: gridColor } }, x: { ticks: { color: fontColor, maxRotation: 0, autoSkip: true, maxTicksLimit: 7 }, grid: { display: false } } }, plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false, callbacks: { label: (context) => `Harga: $${context.parsed.y.toFixed(2)}` } } } } });
+        }
+
+        function handleSetAlert(coinId) {
+            const input = document.getElementById('price-alert-input');
+            const targetPrice = parseFloat(input.value);
+            if (targetPrice && targetPrice > 0) {
+                priceAlerts[coinId] = targetPrice;
+                localStorage.setItem('cryptoPriceAlerts', JSON.stringify(priceAlerts));
+                showNotification('success', `Target untuk ${coinId} diatur ke $${targetPrice}.`);
+                displayCoinDetail(coinId);
+                renderView();
+            } else {
+                showNotification('error', 'Masukkan target harga yang valid.');
+            }
+        }
+
+        function handleRemoveAlert(coinId) {
+            delete priceAlerts[coinId];
+            localStorage.setItem('cryptoPriceAlerts', JSON.stringify(priceAlerts));
+            showNotification('info', `Target untuk ${coinId} telah dihapus.`);
+            displayCoinDetail(coinId);
+            renderView();
+        }
+
+        function checkAlerts() {
+            for (const coin of coinData) {
+                const targetPrice = priceAlerts[coin.id];
+                if (targetPrice && coin.current_price >= targetPrice) {
+                    showNotification('success', `TARGET TERCAPAI! ${coin.name} telah mencapai $${coin.current_price.toLocaleString()}.`);
+                    const historyEntry = { id: Date.now(), coinId: coin.id, name: coin.name, symbol: coin.symbol, image: coin.image, targetPrice: targetPrice, triggeredPrice: coin.current_price, timestamp: new Date().toISOString() };
+                    alertHistory.unshift(historyEntry);
+                    localStorage.setItem('cryptoAlertHistory', JSON.stringify(alertHistory));
+                    delete priceAlerts[coin.id];
+                    localStorage.setItem('cryptoPriceAlerts', JSON.stringify(priceAlerts));
+                    renderView();
+                }
+            }
+        }
+
+        function showNotification(type, message) {
+            const toast = document.createElement('div');
+            let bgColor, icon;
+            switch(type) {
+                case 'success': bgColor = 'bg-green-500 dark:bg-green-600'; icon = 'fa-check-circle'; break;
+                case 'error': bgColor = 'bg-red-500 dark:bg-red-600'; icon = 'fa-exclamation-triangle'; break;
+                default: bgColor = 'bg-blue-500 dark:bg-blue-600'; icon = 'fa-info-circle';
+            }
+            toast.className = `toast text-white ${bgColor}`;
+            toast.innerHTML = `<i class="fas ${icon} mr-2"></i> ${message}`;
+            toastContainer.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 100);
+            setTimeout(() => { toast.classList.remove('show'); toast.addEventListener('transitionend', () => toast.remove()); }, 5000);
+        }
+
+        function toggleWatchlist(coinId) {
+            const index = watchlist.indexOf(coinId);
+            if (index > -1) watchlist.splice(index, 1);
+            else watchlist.push(coinId);
+            localStorage.setItem('cryptoWatchlist', JSON.stringify(watchlist));
+            renderView();
+        }
+
+        function setupDarkMode() {
+            const toggleIcon = darkModeToggle.querySelector('i');
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                toggleIcon.classList.replace('fa-moon', 'fa-sun');
+            } else {
+                document.documentElement.classList.remove('dark');
+                toggleIcon.classList.replace('fa-sun', 'fa-moon');
+            }
+            darkModeToggle.addEventListener('click', () => {
+                const isDark = document.documentElement.classList.toggle('dark');
+                localStorage.theme = isDark ? 'dark' : 'light';
+                toggleIcon.classList.toggle('fa-moon');
+                toggleIcon.classList.toggle('fa-sun');
+                if (chartInstance) {
+                    const labelText = chartInstance.data.datasets[0].label;
+                    const coinName = labelText.replace('Harga ', '').replace(' (30 hari)', '');
+                    const coin = coinData.find(c => c.name === coinName);
+                    if(coin) displayCoinDetail(coin.id);
+                }
+            });
+        }
+        
+        function switchTab(selectedTab) {
+            currentView = selectedTab;
+            [tabAll, tabWatchlist, tabHistory].forEach(tab => tab.classList.remove('tab-active'));
+            
+            searchContainer.classList.toggle('hidden', selectedTab === 'history');
+            historyActions.classList.toggle('hidden', selectedTab !== 'history' || alertHistory.length === 0);
+
+            if (selectedTab === 'all') tabAll.classList.add('tab-active');
+            if (selectedTab === 'watchlist') tabWatchlist.classList.add('tab-active');
+            if (selectedTab === 'history') tabHistory.classList.add('tab-active');
+            
+            renderView();
+        }
+
+        // --- Event Listeners ---
+        searchInput.addEventListener('input', renderView);
+        tabAll.addEventListener('click', () => switchTab('all'));
+        tabWatchlist.addEventListener('click', () => switchTab('watchlist'));
+        tabHistory.addEventListener('click', () => switchTab('history'));
+        document.getElementById('clear-history-btn').addEventListener('click', () => {
+            alertHistory = [];
+            localStorage.removeItem('cryptoAlertHistory');
+            showNotification('info', 'Riwayat target telah dibersihkan.');
+            renderView();
+            historyActions.classList.add('hidden');
+        });
+
+        // --- Inisialisasi ---
+        document.addEventListener('DOMContentLoaded', () => {
+            setupDarkMode();
+            fetchCoinData();
+            setInterval(fetchCoinData, 60000);
+        });
+    </script>
+</body>
+</html>
