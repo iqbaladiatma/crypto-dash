@@ -48,7 +48,7 @@ Tidak ada proses *build* atau dependensi yang rumit. Cukup ikuti langkah-langkah
 
 1.  **Clone repositori ini:**
     ```bash
-    git clone [https://github.com/nama-anda/cryptodash.git](https://github.com/nama-anda/cryptodash.git)
+    git clone [https://github.com/iqbaladiatma/cryptodash.git](https://github.com/iqbaladiatma/cryptodash.git)
     ```
 2.  **Buka file `index.html`:**
     Navigasikan ke direktori proyek dan buka file `index.html` langsung di peramban web modern (Chrome, Firefox, Edge).
